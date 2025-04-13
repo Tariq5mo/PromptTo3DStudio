@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.so
+.Python
+venv/
+ENV/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+*:Zone.Identifier
+Thumbs.db
+
+# Project specific
+logs/
+models/
+output/
+*.log
+*.db
+*.sqlite3
+
