@@ -7,7 +7,8 @@ from typing import Optional, List
 
 def setup_logging(
     log_level: int = logging.INFO,
-    log_format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    # Use a slightly cleaner format
+    log_format: str = '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     log_file: Optional[str] = None,
 ):
     """
@@ -34,7 +35,7 @@ def setup_logging(
     # Configure root logger
     logging.basicConfig(
         level=log_level,
-        format=log_format,
+        format=log_format, # Use the updated format
         handlers=handlers
     )
 

@@ -100,6 +100,9 @@ def retry(max_attempts: int = 3, delay: float = 2.0, backoff: float = 2.0):
             last_exception = None
             current_delay = delay
 
+            # Get function name safely (handles mock objects)
+            func_name = getattr(func, "__name__", str(func))
+
             for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
@@ -107,14 +110,14 @@ def retry(max_attempts: int = 3, delay: float = 2.0, backoff: float = 2.0):
                     last_exception = e
                     if attempt < max_attempts - 1:  # Don't sleep on the last attempt
                         logging.warning(
-                            f"Attempt {attempt+1}/{max_attempts} for {func.__name__} "
+                            f"Attempt {attempt+1}/{max_attempts} for {func_name} "
                             f"failed: {str(e)}. Retrying in {current_delay:.1f}s..."
                         )
                         time.sleep(current_delay)
                         current_delay *= backoff
                     else:
                         logging.error(
-                            f"Final attempt {max_attempts}/{max_attempts} for {func.__name__} "
+                            f"Final attempt {max_attempts}/{max_attempts} for {func_name} "
                             f"failed: {str(e)}"
                         )
 
