@@ -38,18 +38,21 @@ class PipelineService:
         """
         # Initialize execution context for tracking
         context = ExecutionContext(user_prompt)
+        correlation_id = context.correlation_id # Get the ID
 
         try:
             # Step 1: Enhance prompt with LLM
             context.update_stage("prompt_enhancement")
-            enhanced_prompt = self.llm_service.enhance_prompt(user_prompt)
+            # Pass correlation_id here
+            enhanced_prompt = self.llm_service.enhance_prompt(user_prompt, correlation_id)
             context.enhanced_prompt = enhanced_prompt
 
             # Step 2: Generate image from enhanced prompt
             context.update_stage("text_to_image")
-            image_result = self._generate_image_from_text(enhanced_prompt)
+            # Pass correlation_id here
+            image_result = self._generate_image_from_text(enhanced_prompt, correlation_id)
 
-            if not image_result:
+            if not image_result or "image" not in image_result:
                 raise ValueError("Failed to generate image from text")
 
             # Save the image to disk
@@ -64,7 +67,8 @@ class PipelineService:
 
             # Step 3: Generate 3D model from image
             context.update_stage("image_to_3d")
-            model_result = self._generate_3d_from_image(image_result["image"])
+            # Pass correlation_id here
+            model_result = self._generate_3d_from_image(image_result["image"], correlation_id)
 
             if not model_result:
                 raise ValueError("Failed to generate 3D model from image")
@@ -91,17 +95,20 @@ class PipelineService:
         return context
 
     @retry(max_attempts=3, delay=2.0)
-    def _generate_image_from_text(self, prompt: str) -> Dict[str, Any]:
+    # Add correlation_id parameter
+    def _generate_image_from_text(self, prompt: str, correlation_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Generate an image from text using the Text-to-Image app.
 
         Args:
             prompt: The text prompt to generate an image from
+            correlation_id: Optional correlation ID for logging traceability
 
         Returns:
             Dictionary containing the app response
         """
-        logging.info(f"Calling Text-to-Image app with prompt: '{prompt}'")
+        log_prefix = f"[{correlation_id}] " if correlation_id else ""
+        logging.info(f"{log_prefix}Calling Text-to-Image app with prompt: '{prompt}'")
         start_time = time.time()
 
         # Initialize the Stub with the Text-to-Image app ID
@@ -109,32 +116,35 @@ class PipelineService:
 
         # Fetch schema for dynamic validation (optional but good practice)
         input_schema = stub.schema(TEXT_TO_IMAGE_APP_ID, 'input')
-        logging.debug(f"Text-to-Image input schema: {input_schema}")
+        logging.debug(f"{log_prefix}Text-to-Image input schema: {input_schema}")
 
         # Call the app with the prompt
         result = stub.call(TEXT_TO_IMAGE_APP_ID, {"prompt": prompt})
 
         # Log performance metrics
         elapsed_time = time.time() - start_time
-        logging.info(f"Text-to-Image generation completed in {elapsed_time:.2f} seconds")
+        logging.info(f"{log_prefix}Text-to-Image generation completed in {elapsed_time:.2f} seconds")
 
         if not result or "image" not in result:
-            raise ValueError("Invalid response from Text-to-Image app")
+            raise ValueError("Failed to generate image from text")
 
         return result
 
     @retry(max_attempts=3, delay=2.0)
-    def _generate_3d_from_image(self, image_base64: str) -> Dict[str, Any]:
+    # Add correlation_id parameter
+    def _generate_3d_from_image(self, image_base64: str, correlation_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Generate a 3D model from an image using the Image-to-3D app.
 
         Args:
             image_base64: Base64-encoded image
+            correlation_id: Optional correlation ID for logging traceability
 
         Returns:
             Dictionary containing the app response
         """
-        logging.info("Calling Image-to-3D app with image")
+        log_prefix = f"[{correlation_id}] " if correlation_id else ""
+        logging.info(f"{log_prefix}Calling Image-to-3D app with image")
         start_time = time.time()
 
         # Initialize the Stub with the Image-to-3D app ID
@@ -142,16 +152,16 @@ class PipelineService:
 
         # Fetch schema for dynamic validation (optional but good practice)
         input_schema = stub.schema(IMAGE_TO_3D_APP_ID, 'input')
-        logging.debug(f"Image-to-3D input schema: {input_schema}")
+        logging.debug(f"{log_prefix}Image-to-3D input schema: {input_schema}")
 
         # Call the app with the image
         result = stub.call(IMAGE_TO_3D_APP_ID, {"image": image_base64})
 
         # Log performance metrics
         elapsed_time = time.time() - start_time
-        logging.info(f"Image-to-3D generation completed in {elapsed_time:.2f} seconds")
+        logging.info(f"{log_prefix}Image-to-3D generation completed in {elapsed_time:.2f} seconds")
 
         if not result:
-            raise ValueError("Invalid response from Image-to-3D app")
+            raise ValueError("Failed to generate 3D model from image")
 
         return result

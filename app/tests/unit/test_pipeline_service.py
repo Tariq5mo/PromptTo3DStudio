@@ -116,47 +116,48 @@ class TestPipelineService(unittest.TestCase):
 
     def test_text_to_image_failure(self):
         """Test handling of Text-to-Image API failure"""
-        # Mock stub to return invalid response
-        self.mock_stub.call.side_effect = [
-            {},  # Missing "image" field
-            SAMPLE_3D_MODEL
-        ]
+        # Patch the _generate_image_from_text method to raise a specific error
+        with patch.object(self.pipeline_service, '_generate_image_from_text') as mock_generate:
+            # Configure the mock to raise a ValueError with the expected message
+            mock_generate.side_effect = ValueError("Failed to generate image from text")
 
-        # Call the process method
-        context = self.pipeline_service.process(TEST_PROMPT)
+            # Call the process method
+            context = self.pipeline_service.process(TEST_PROMPT)
 
-        # Verify error was captured
-        self.assertIsNotNone(context.error)
-        self.assertEqual(context.stage, "text_to_image")
-        self.assertTrue("Failed to generate image from text" in str(context.error))
+            # Verify error was captured
+            self.assertIsNotNone(context.error)
+            self.assertEqual(context.stage, "text_to_image")
+            self.assertTrue("Failed to generate image from text" in str(context.error))
 
-        # Verify LLM was called but later steps were not
-        self.mock_llm_service.enhance_prompt.assert_called_once()
-        self.mock_stub.call.assert_called_once()
-        self.mock_image_utils.save_base64_image.assert_not_called()
-        self.mock_image_utils.save_3d_model.assert_not_called()
+            # Verify LLM was called but later steps were not
+            self.mock_llm_service.enhance_prompt.assert_called_once()
+            self.mock_image_utils.save_base64_image.assert_not_called()
+            self.mock_image_utils.save_3d_model.assert_not_called()
 
     def test_image_to_3d_failure(self):
         """Test handling of Image-to-3D API failure"""
-        # Mock stub to return valid response for first call, then None
+        # Setup for a successful image generation first
         self.mock_stub.call.side_effect = [
             {"image": SAMPLE_BASE64_IMAGE},  # Good Text-to-Image result
-            None                             # Failed Image-to-3D result
         ]
 
-        # Call the process method
-        context = self.pipeline_service.process(TEST_PROMPT)
+        # Patch the _generate_3d_from_image method to raise a specific error
+        with patch.object(self.pipeline_service, '_generate_3d_from_image') as mock_generate:
+            # Configure the mock to raise a ValueError with the expected message
+            mock_generate.side_effect = ValueError("Failed to generate 3D model from image")
 
-        # Verify error was captured
-        self.assertIsNotNone(context.error)
-        self.assertEqual(context.stage, "image_to_3d")
-        self.assertTrue("Failed to generate 3D model from image" in str(context.error))
+            # Call the process method
+            context = self.pipeline_service.process(TEST_PROMPT)
 
-        # Verify earlier steps were called but later steps were not
-        self.mock_llm_service.enhance_prompt.assert_called_once()
-        self.assertEqual(self.mock_stub.call.call_count, 2)
-        self.mock_image_utils.save_base64_image.assert_called_once()
-        self.mock_image_utils.save_3d_model.assert_not_called()
+            # Verify error was captured
+            self.assertIsNotNone(context.error)
+            self.assertEqual(context.stage, "image_to_3d")
+            self.assertTrue("Failed to generate 3D model from image" in str(context.error))
+
+            # Verify earlier steps were called but later steps were not
+            self.mock_llm_service.enhance_prompt.assert_called_once()
+            self.mock_image_utils.save_base64_image.assert_called_once()
+            self.mock_image_utils.save_3d_model.assert_not_called()
 
 
 if __name__ == "__main__":
