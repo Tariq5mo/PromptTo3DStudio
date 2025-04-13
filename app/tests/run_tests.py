@@ -3,8 +3,8 @@ import unittest
 import sys
 import os
 
-# Add the parent directory to the path so imports work correctly
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Add the proper path to import modules from the application
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 def run_all_tests():
     """Run all unit and integration tests"""
