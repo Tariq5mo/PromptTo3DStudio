@@ -22,19 +22,7 @@ class PromptEnhancer:
         self.llm_service = llm_service
 
     def process(self, prompt: str, context: Optional[List[Dict[str, Any]]] = None) -> str:
-        """
-        Process a user prompt through the complete enhancement pipeline:
-        1. Apply specialized strategy based on prompt type
-        2. Enhance with LLM for creative details
-        3. Validate and refine the output
-
-        Args:
-            prompt (str): The original user prompt
-            context (Optional[List[Dict[str, Any]]]): Optional context from previous interactions
-
-        Returns:
-            str: Fully enhanced prompt ready for image generation
-        """
+        """Process a user prompt through the complete enhancement pipeline."""
         logging.info(f"Processing prompt: '{prompt}'")
 
         # Step 1: Apply specialized strategy
@@ -49,22 +37,53 @@ class PromptEnhancer:
         llm_enhanced = self.llm_service.enhance_prompt(strategy_prompt)
         logging.info(f"LLM enhanced prompt: '{llm_enhanced}'")
 
-        # Step 3: Validate output
+        # Step 3: Validate and optimize output
         if not self.llm_service.validate_output(llm_enhanced):
-            logging.warning(
-                "Enhanced prompt failed validation, using backup method")
-            # Fallback to simpler enhancement if the full enhancement fails validation
+            logging.warning("Enhanced prompt failed validation, using backup method")
             final_prompt = self._create_backup_prompt(prompt)
         else:
             final_prompt = llm_enhanced
 
-        # For very long prompts, trim to a reasonable length
-        if len(final_prompt) > 1000:
-            logging.info("Trimming prompt to reasonable length")
-            final_prompt = final_prompt[:1000]
+        # Intelligently trim the prompt if it's too long
+        max_length = 1000  # Reduced from 2000 to ensure better handling
+        if len(final_prompt) > max_length:
+            logging.warning(f"Prompt too long ({len(final_prompt)} chars). Trimming intelligently.")
+            final_prompt = self._intelligent_trim(final_prompt, max_length)
 
         logging.info(f"Final enhanced prompt: '{final_prompt}'")
         return final_prompt
+
+    def _intelligent_trim(self, text: str, max_length: int = 1000) -> str:
+        """
+        Intelligently trim the text to the specified maximum length.
+        Preserves complete sentences where possible.
+
+        Args:
+            text (str): The text to trim
+            max_length (int): The maximum allowed length
+
+        Returns:
+            str: The trimmed text
+        """
+        if len(text) <= max_length:
+            return text
+
+        # Find a good breaking point (end of sentence)
+        breakpoint = max_length
+        while breakpoint > max_length // 2:
+            if text[breakpoint] in ['.', '!', '?'] and text[breakpoint-1] not in ['.', '!', '?']:
+                return text[:breakpoint+1].strip()
+            breakpoint -= 1
+
+        # If no good sentence break found, break at a space
+        breakpoint = max_length
+        while breakpoint > max_length // 2:
+            if text[breakpoint] == ' ':
+                return text[:breakpoint].strip()
+            breakpoint -= 1
+
+        # Last resort: hard break at max_length
+        return text[:max_length].strip()
 
     def _create_backup_prompt(self, prompt: str) -> str:
         """
